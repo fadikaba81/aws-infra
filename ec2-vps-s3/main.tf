@@ -67,10 +67,10 @@ resource "aws_s3_bucket" "my-aws-s3-bucket" {
   bucket = "fkaba-sirri-${random_id.randomness.hex}"
 
   tags = {
-    Name = "MY s3 bucket"
+    Name    = "MY s3 bucket"
     Purpose = "Building an automation"
   }
-  
+
 }
 
 # Terraform Resource Block - To Build EC2 instance in Public Subnet
@@ -83,6 +83,18 @@ resource "aws_instance" "web_server" {
   }
 }
 
+resource "aws_subnet" "variables-subnet" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = var.variables_sub_cidr
+  availability_zone       = var.variables_sub_az
+  map_public_ip_on_launch = var.variables_sub_auto_ip
+
+  tags = {
+    Name      = "sub-variable${var.variables_sub_az}"
+    Terraform = "true"
+  }
+}
+
 resource "random_id" "randomness" {
-  byte_length=16
+  byte_length = 16
 }
