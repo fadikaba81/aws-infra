@@ -13,6 +13,13 @@ variable "vpc_cidr" {
   default = "10.0.0.0/16"
 }
 
+variable "environment" {
+  description = "The name of the environment"
+  type        = string
+  default     = "Dev"
+
+}
+
 variable "private_subnets" {
   default = {
     "private_subnet_1" = 1
