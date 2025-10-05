@@ -1,4 +1,9 @@
 # Configure the AWS Provider
+/*Iac Build a infra for terraform exam
+Description; AWS Infra buildout
+*/
+
+#Configuration provider 
 provider "aws" {
   region = "ap-southeast-2"
 }
@@ -22,7 +27,7 @@ resource "aws_vpc" "vpc" {
     Environment = "demo_environment"
     Terraform   = "true"
     Region      = data.aws_region.current.description
- 
+
   }
 }
 
