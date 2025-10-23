@@ -10,7 +10,7 @@ output "vpc_id" {
 
 output "public_udl" {
   description = "{Public URL for our Web Server}"
-  value       = "https://${aws_instance.ubuntu_server.public_ip}:8080/index.html"
+  value       = "http://${aws_instance.ubuntu_server.public_ip}"
 }
 
 output "vpc_information" {
@@ -18,3 +18,20 @@ output "vpc_information" {
   value       = "Your ${aws_vpc.vpc.tags.Environment} VPC has no ID of ${aws_vpc.vpc.id}"
 
 }
+
+output "public_ip" {
+  value = module.server.public_ip
+}
+
+output "public_dns" {
+  value = module.server.public_dns
+
+}
+
+output "size" {
+  value = module.server.size
+
+}
+
+
+

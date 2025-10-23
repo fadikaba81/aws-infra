@@ -6,6 +6,14 @@ Description; AWS Infra buildout
 #Configuration provider 
 provider "aws" {
   region = "ap-southeast-2"
+
+  default_tags {
+    tags = {
+      Environment = terraform.workspace
+      Owner       = "Acme"
+      Provisoned  = "Terrafor"
+    }
+  }
 }
 
 #Retrieve the list of AZs in the current AWS region
@@ -41,10 +49,10 @@ resource "aws_internet_gateway" "demo_igw" {
 }
 
 resource "aws_route" "demo_route_table" {
-  route_table_id = aws_vpc.vpc.main_route_table_id
+  route_table_id         = aws_vpc.vpc.main_route_table_id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.demo_igw.id
-  
+  gateway_id             = aws_internet_gateway.demo_igw.id
+
 }
 
 #Deploy the private subnets
@@ -103,10 +111,11 @@ resource "aws_s3_bucket" "my-aws-s3-bucket" {
 
 # Terraform Resource Block - To Build EC2 instance in Public Subnet
 resource "aws_instance" "ubuntu_server" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public_subnets["public_subnet_1"].id
-  security_groups             = [aws_security_group.vpc-ping.id, aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.public_subnets["public_subnet_1"].id
+  security_groups = [aws_security_group.vpc-ping.id,
+  aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
   associate_public_ip_address = true
   key_name                    = aws_key_pair.generated.key_name
   connection {
@@ -132,6 +141,10 @@ resource "aws_instance" "ubuntu_server" {
     Name  = local.server_name
     Owner = local.team
     App   = local.application
+  }
+
+  lifecycle {
+    ignore_changes = [security_groups]
   }
 }
 
@@ -174,6 +187,7 @@ resource "aws_key_pair" "generated" {
 resource "aws_security_group" "ingress-ssh" {
   name   = "allow-all-ssh"
   vpc_id = aws_vpc.vpc.id
+
   ingress {
     cidr_blocks = [
       "0.0.0.0/0"
@@ -240,3 +254,93 @@ resource "aws_security_group" "vpc-ping" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+## new web server 
+# Terraform Resource Block - To Build Web Server in Public Subnet
+resource "aws_instance" "web_server" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.public_subnets["public_subnet_1"].id
+  security_groups = [aws_security_group.vpc-ping.id,
+  aws_security_group.ingress-ssh.id, aws_security_group.vpc-web.id]
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.generated.key_name
+  connection {
+    user        = "ubuntu"
+    private_key = tls_private_key.generated.private_key_pem
+    host        = self.public_ip
+  }
+
+  # Leave the first part of the block unchanged and create our `local-exec` provisioner
+  provisioner "local-exec" {
+    command = "chmod 600 ${local_file.private_key_pem.filename}"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo rm -rf /tmp",
+      "sudo git clone https://github.com/hashicorp/demo-terraform-101 /tmp",
+      "sudo sh /tmp/assets/setup-web.sh",
+    ]
+  }
+
+  tags = {
+    Name = "Web EC2 Server"
+  }
+
+  lifecycle {
+    ignore_changes = [security_groups]
+  }
+
+}
+
+module "server" {
+  source    = "./module/server"
+  size      = "t2.micro"
+  ami       = data.aws_ami.ubuntu.id
+  subnet_id = aws_subnet.public_subnets["public_subnet_3"].id
+  security_groups = [
+    aws_security_group.ingress-ssh.id,
+    aws_security_group.vpc-ping.id,
+    aws_security_group.vpc-web.id
+  ]
+
+}
+
+module "server_subnet_1" {
+  source = "./module/web_server"
+
+  ami             = data.aws_ami.ubuntu.id
+  subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
+  security_groups = [aws_security_group.ingress-ssh.id, aws_security_group.vpc-ping.id, aws_security_group.vpc-web.id]
+  key_name        = aws_key_pair.generated.key_name
+  user            = "ubuntu"
+  private_key     = tls_private_key.generated.private_key_pem
+
+}
+
+module "autoscaling" {
+  source = "github.com/terraform-aws-modules/terraform-aws-autoscaling"
+
+  # Autoscaling group
+  name = "myasg"
+
+  vpc_zone_identifier = [
+    aws_subnet.private_subnets["private_subnet_1"].id,
+    aws_subnet.private_subnets["private_subnet_2"].id,
+    aws_subnet.private_subnets["private_subnet_3"].id
+  ]
+  min_size         = 0
+  max_size         = 1
+  desired_capacity = 1
+
+  # Launch template
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+  instance_name = "asg-instance"
+
+  tags = {
+    Name = "Web EC2 Server 2"
+  }
+}
+
