@@ -1,17 +1,24 @@
 
 terraform {
-  # backend "s3" {
-  #   bucket = "my-terraform-state-fk"
-  #   key = "prod/aws_infra"
-  #   region = "ap-southeast-2"
+
+  # backend "local" {
+  #   path = "terraform.tfstate"
   # }
-  backend "remote" {
-    hostname     = "app.terraform.io"
-    organization = "fkaba-terraform-hc-exam"
-    workspaces {
-      name = "aws-infra"
-    }
-  }
+
+  # backend "s3" {
+  #   bucket         = "my-terraform-state-fk"
+  #   key            = "prod/aws_infra"
+  #   region         = "ap-southeast-2"
+  #   # dynamodb_table = "terraform-locks"
+  #   # encrypt        = true
+  # }
+  # backend "remote" {
+  #   hostname     = "app.terraform.io"
+  #   organization = "fkaba-terraform-hc-exam"
+  #   workspaces {
+  #     name = "aws-infra"
+  #   }
+  # }
   required_version = "~>1.9.8"
   required_providers {
     aws = {

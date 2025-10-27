@@ -352,3 +352,10 @@ resource "aws_instance" "web_server_2" {
     Name = "Web EC2 Server 2"
   }
 }
+
+# resource "s3" "dev" {
+#   bucket = data.aws_s3_bucket.my-terraform-state-fk.id
+#   key    = "dev/aws_infra"
+#   region = "ap-southeast-2"
+
+# }
