@@ -19,7 +19,7 @@ output "vpc_information" {
 
 }
 
-output "public_ip" {
+output "public_ip_model" {
   value = module.server.public_ip
 }
 
@@ -33,5 +33,40 @@ output "size" {
 
 }
 
+output "public_ip" {
+  description = "This is the public IP of my web server"
+  value       = aws_instance.web_server.public_ip
+  sensitive   = true
+}
+
+output "phone_number" {
+  description = "Phone Number"
+  value       = var.phone_number
+  sensitive   = true
+
+}
+
+output "data-bucket-domain-arn" {
+  value = data.aws_s3_bucket.data_bucket.arn
+
+}
+
+output "data-bucket-domain-name" {
+  value = data.aws_s3_bucket.data_bucket.bucket_domain_name
+
+}
+
+output "data-bucket-domain-region" {
+  value = "The following ${data.aws_s3_bucket.data_bucket.id} bucket is located in ${data.aws_s3_bucket.data_bucket.region}"
+
+}
 
 
+output "max_value" {
+  value = local.maximum
+}
+
+
+output "min_value" {
+  value = local.minimum
+}

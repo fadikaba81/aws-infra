@@ -53,3 +53,103 @@ variable "variables_sub_auto_ip" {
   type        = bool
   default     = true
 }
+
+locals {
+  service_name = "Automation"
+  app_team     = "Cloud Team"
+  createdby    = "terraform"
+}
+
+locals {
+  # Common tags to be assigned to all resources
+  common_tags = {
+    Name      = lower(local.server_name)
+    Owner     = lower(local.team)
+    App       = lower(local.application)
+    Service   = lower(local.service_name)
+    AppTeam   = lower(local.app_team)
+    CreatedBy = lower(local.createdby)
+  }
+}
+
+variable "ap-southeast-2" {
+  type = list(string)
+  default = [
+    "ap-southeast-2a",
+    "ap-southeast-2b",
+    "ap-southeast-2c"
+  ]
+}
+
+variable "ip" {
+  type = map(string)
+  default = {
+    Prod = "10.0.150.0/24"
+    Dev  = "10.0.250.0/24"
+  }
+
+}
+
+variable "env" {
+  type = map(any)
+  default = {
+    Prod = {
+      ip = "10.0.150.0/24"
+      az = "ap-southeast-2a"
+    }
+    Dev = {
+      ip = "10.0.250.0/24"
+      az = "ap-southeast-2b"
+    }
+  }
+}
+
+variable "num_1" {
+  type        = number
+  description = "Numbers for function labs"
+  default     = 88
+}
+
+variable "num_2" {
+  type        = number
+  description = "Numbers for function labs"
+  default     = 73
+}
+
+variable "num_3" {
+  type        = number
+  description = "Numbers for function labs"
+  default     = 52
+}
+
+variable "web_ingress" {
+  type = map(object(
+    {
+      description = string
+      port        = number
+      protocol    = string
+      cidr_block  = list(string)
+    }
+  ))
+  default = {
+    "80" = {
+      description = "Port 80"
+      port        = 80
+      protocol    = "tcp"
+      cidr_block  = ["0.0.0.0/0"]
+    }
+    "443" = {
+      description = "Port 443"
+      port        = 443
+      protocol    = "tcp"
+      cidr_block  = ["0.0.0.0/0"]
+    }
+  }
+}
+
+variable "environment" {
+  type = string
+  description = "Infra env. eg dev prod etc"
+  default = "test"
+  
+}

@@ -26,13 +26,16 @@ locals {
   server_name = "ec2-${var.environment}-api-${var.variables_sub_az}"
 }
 
+
+
+
 #Define the VPC 
 resource "aws_vpc" "vpc" {
   cidr_block = var.vpc_cidr
 
   tags = {
-    Name        = var.vpc_name
-    Environment = "demo_environment"
+    Name        = upper(var.vpc_name)
+    Environment = upper(var.environment)
     Terraform   = "true"
     Region      = data.aws_region.current.description
 
@@ -82,6 +85,28 @@ resource "aws_subnet" "public_subnets" {
   }
 }
 
+data "aws_s3_bucket" "data_bucket" {
+  bucket = "my-data-lookup-fk"
+}
+
+resource "aws_iam_policy" "policy" {
+  name        = "data_bucket_policy"
+  description = "Allow access to my bucket"
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "s3:Get*",
+          "s3:List*"
+        ],
+        "Resource" : "${data.aws_s3_bucket.data_bucket.arn}"
+      }
+    ]
+  })
+}
+
 # Terraform Data Block - To Lookup Latest Ubuntu 20.04 AMI Image
 data "aws_ami" "ubuntu" {
   most_recent = true
@@ -124,10 +149,10 @@ resource "aws_instance" "ubuntu_server" {
     host        = self.public_ip
   }
 
-  provisioner "local-exec" {
-    command = "chmod 600 ${local_file.private_key_pem.filename}"
+  # provisioner "local-exec" {
+  #   command = "chmod 600 ${local_file.private_key_pem.filename}"
 
-  }
+  # }
 
   provisioner "remote-exec" {
     inline = [
@@ -137,11 +162,7 @@ resource "aws_instance" "ubuntu_server" {
     ]
   }
 
-  tags = {
-    Name  = local.server_name
-    Owner = local.team
-    App   = local.application
-  }
+  tags = local.common_tags
 
   lifecycle {
     ignore_changes = [security_groups]
@@ -155,7 +176,7 @@ resource "aws_subnet" "variables-subnet" {
   map_public_ip_on_launch = var.variables_sub_auto_ip
 
   tags = {
-    Name      = "sub-variable${var.variables_sub_az}"
+    Name      = "sub-variable-${var.variables_sub_az}"
     Terraform = "true"
   }
 }
@@ -168,10 +189,10 @@ resource "tls_private_key" "generated" {
   algorithm = "RSA"
 }
 
-resource "local_file" "private_key_pem" {
-  content  = tls_private_key.generated.private_key_pem
-  filename = "MyAWSKey.pem"
-}
+# resource "local_file" "private_key_pem" {
+#   content  = tls_private_key.generated.private_key_pem
+#   filename = "MyAWSKey.pem"
+# }
 
 resource "aws_key_pair" "generated" {
   key_name   = "MyAWSKey"
@@ -272,9 +293,9 @@ resource "aws_instance" "web_server" {
   }
 
   # Leave the first part of the block unchanged and create our `local-exec` provisioner
-  provisioner "local-exec" {
-    command = "chmod 600 ${local_file.private_key_pem.filename}"
-  }
+  # provisioner "local-exec" {
+  #   command = "chmod 600 ${local_file.private_key_pem.filename}"
+  # }
 
   provisioner "remote-exec" {
     inline = [
@@ -312,7 +333,7 @@ module "server_subnet_1" {
 
   ami             = data.aws_ami.ubuntu.id
   subnet_id       = aws_subnet.public_subnets["public_subnet_1"].id
-  security_groups = [aws_security_group.ingress-ssh.id, aws_security_group.vpc-ping.id, aws_security_group.vpc-web.id]
+  security_groups = [aws_security_group.ingress-ssh.id, aws_security_group.vpc-ping.id, aws_security_group.vpc-web.id, aws_security_group.main.id]
   key_name        = aws_key_pair.generated.key_name
   user            = "ubuntu"
   private_key     = tls_private_key.generated.private_key_pem
@@ -353,9 +374,51 @@ resource "aws_instance" "web_server_2" {
   }
 }
 
-# resource "s3" "dev" {
-#   bucket = data.aws_s3_bucket.my-terraform-state-fk.id
-#   key    = "dev/aws_infra"
-#   region = "ap-southeast-2"
+resource "aws_subnet" "list_subnet" {
+  for_each          = var.env
+  vpc_id            = aws_vpc.vpc.id
+  cidr_block        = each.value.ip
+  availability_zone = each.value.az
 
-# }
+  tags = {
+    "Environment" = each.key
+  }
+
+}
+
+locals {
+  maximum = max(var.num_1, var.num_2, var.num_3)
+  minimum = min(var.num_1, var.num_2, var.num_3, 44, 20)
+}
+
+locals {
+  ingress_rule = [{
+    port        = 443
+    description = "Https"
+    },
+    {
+      port        = 80
+      description = "HTTP"
+  }]
+}
+
+resource "aws_security_group" "main" {
+  name   = "core-sg-global"
+  vpc_id = aws_vpc.vpc.id
+
+  dynamic "ingress" {
+    for_each = var.web_ingress
+    content {
+      description = ingress.value.description
+      from_port   = ingress.value.port
+      to_port     = ingress.value.port
+      protocol    = ingress.value.protocol
+      cidr_blocks = ingress.value.cidr_block
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    # prevent_destroy = true
+  }
+}
